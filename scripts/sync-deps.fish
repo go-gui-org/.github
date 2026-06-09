@@ -11,7 +11,10 @@
 #                   (default: parent of the .github checkout)
 #   --dry-run       Print what would be done, don't commit or push
 
-set -l root (realpath (dirname (dirname (status -f))))
+set -l script_dir (dirname (status -f))
+pushd $script_dir
+set -l root (dirname (git rev-parse --show-toplevel))
+popd
 set -l dry_run false
 set -l glyph_ver ""
 set -l gui_ver ""
@@ -119,8 +122,10 @@ for repo_def in $repos
 	end
 
 	# Update CI workflow refs if this repo pins them.
-	# Matches "repository: go-gui-org/go-glyph" followed by
-	# "ref: vX.Y.Z" and updates the ref line.
+	# Matches "repository: go-gui-org/go-glyph" anywhere in a
+	# checkout step's with: block, followed eventually by
+	# "ref: vX.Y.Z" or "ref: X.Y.Z". Uses .*? (non-greedy, /s
+	# flag) because path: may sit between repository: and ref:.
 	if test "$ci_pins" = "1"
 		for ci_file in .github/workflows/*.yml .github/workflows/*.yaml
 			if not test -f "$ci_file"
@@ -130,12 +135,12 @@ for repo_def in $repos
 			if not $dry_run
 				if test -n "$glyph_ver"
 					env GLYPH_VER="$glyph_ver" perl -i -0777 -pe \
-						's/(repository:\s*go-gui-org\/go-glyph\s*\n\s*ref:\s*)v[0-9.]+/${1}$ENV{GLYPH_VER}/g' \
+						's/(repository:\s*go-gui-org\/go-glyph\b.*?\n\s*ref:\s*)v?[0-9.]+/${1}$ENV{GLYPH_VER}/sg' \
 						"$ci_file"
 				end
 				if test -n "$gui_ver"
 					env GUI_VER="$gui_ver" perl -i -0777 -pe \
-						's/(repository:\s*go-gui-org\/go-gui\s*\n\s*ref:\s*)v[0-9.]+/${1}$ENV{GUI_VER}/g' \
+						's/(repository:\s*go-gui-org\/go-gui\b.*?\n\s*ref:\s*)v?[0-9.]+/${1}$ENV{GUI_VER}/sg' \
 						"$ci_file"
 				end
 			end
@@ -161,27 +166,11 @@ for repo_def in $repos
 		continue
 	end
 
-	set -l branch "deps/sync-"(date +%Y%m%d-%H%M)
-	git checkout -b $branch
 	git add go.mod go.sum .github/workflows/
 	git commit -m "$msg"
-	git push origin $branch
+	git push origin main
 
-	# Open PR
-	set -l body "Auto-bumped by sync-deps.fish.\n\n"
-	if test -n "$glyph_ver"
-		set -a body "- go-glyph: $glyph_ver\n"
-	end
-	if test -n "$gui_ver"
-		set -a body "- go-gui: $gui_ver\n"
-	end
-	gh pr create \
-		--title "$msg" \
-		--body (printf "%b" "$body") \
-		--base main \
-		--head $branch
-
-	log "  PR opened for $msg"
+	log "  pushed to main: $msg"
 	popd
 end
 
