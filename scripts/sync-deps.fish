@@ -88,6 +88,19 @@ for repo_def in $repos
 
 	pushd $repo_path
 
+	# Ensure on main and up to date
+	set -l current_branch (git branch --show-current)
+	if test "$current_branch" != "main"
+		log "  switching from $current_branch to main"
+		if not $dry_run
+			git checkout main
+		end
+	end
+
+	if not $dry_run
+		git pull origin main
+	end
+
 	# Check if repo is clean
 	if not git diff --quiet
 		warn "$name: dirty working tree, skipping"
