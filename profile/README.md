@@ -2,7 +2,7 @@
 
 A modern, cross-platform graphical user interface framework for Go. go-gui provides
 native-feeling widgets, flexible layout, and GPU-accelerated rendering across macOS,
-Windows, and Linux — no CGo, no JavaScript bridge, just Go.
+Windows, and Linux — no JavaScript bridge, just Go.
 
 ## Libraries
 
